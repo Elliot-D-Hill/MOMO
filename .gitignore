@@ -127,3 +127,10 @@ dmypy.json
 
 # Pyre type checker
 .pyre/
+
+log.ipynb
+data/
+models/
+hyperparameters/
+conf/
+epost.dtd

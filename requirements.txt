@@ -1,0 +1,6 @@
+git+https://github.com/Elliot-D-Hill/proteintools.git
+toml
+torch
+pandas
+dacite
+pydantic
