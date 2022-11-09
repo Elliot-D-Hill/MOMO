@@ -1,33 +1,4 @@
-from pandas import read_csv
-from pathlib import Path
 from numpy import select
-
-from proteintools.fastatools import (
-    get_fasta_from_ncbi_query,
-    make_dataframe_from_fasta,
-    save_data,
-)
-
-
-class ChainParser:
-    def format_dataframe(self, df):
-        old_columns = ["pdb", "Hchain", "Lchain", "antigen_chain"]
-        new_columns = ["pdb_code", "heavy", "light", "antigen"]
-        columns = dict(zip(old_columns, new_columns))
-        return (
-            df.filter(items=old_columns)
-            .assign(pdb=df["pdb"].str.upper())
-            .assign(
-                antigen_chain=df["antigen_chain"].str.replace(" | ", "", regex=False)
-            )
-            .rename(columns=columns)
-        )
-
-    def filter_dataframe(self, df):
-        return df[df["heavy"] != df["light"]]
-
-    def transform_dataframe(self, df):
-        return df.groupby("pdb_code").sum()
 
 
 class SabdabParser:
@@ -78,5 +49,6 @@ class SabdabParser:
         )
 
 
+# TODO refactor this and make more abstract; "chain" is too specific
 def is_chain_subset(df, column):
     return [any([i in str(a) for i in str(b)]) for a, b in zip(df[column], df["chain"])]

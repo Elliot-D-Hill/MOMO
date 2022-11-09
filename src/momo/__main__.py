@@ -6,12 +6,12 @@ from proteintools.embedding_model import SequenceClassifier
 from proteintools.fastatools import (
     make_dataframe_from_fasta,
     get_fasta_from_ncbi_query,
+    FastaParser,
 )
 
-from momo.config import MOMOConfig
 from momo.sabdab import SabdabParser
 from momo.skempi import SkempiParser
-from momo.fasta import FastaParser
+from momo.config import MOMOConfig
 
 
 def main():
@@ -33,8 +33,8 @@ def main():
     fasta_parser = FastaParser()
     skempi_fasta_parsed = fasta_parser.run_pipeline(skempi_fasta_df)
     print(skempi_fasta_parsed)
-
-    # TODO map mutations
+    skempi_mutated = map_mutations(skempi_fasta_parsed)
+    print(skempi_mutated)
 
     # SABDAB
     sabdab_df = read_csv(cfg.filepaths.input.sabdab, sep="\t")

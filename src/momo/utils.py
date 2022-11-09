@@ -9,11 +9,7 @@ def clean_dataframe_header(df: DataFrame, replacements: dict) -> DataFrame:
     return df
 
 
-def collapse_on_column(df: DataFrame, column_name: str) -> DataFrame:
-    """Collapse rows that differ only by specified column"""
-    columns = [name for name in df.columns if name != column_name]
-    return (
-        df.groupby(columns)[column_name]
-        .apply(lambda lst: "".join(sorted(lst)))
-        .reset_index()
-    )
+def save_data(df, path, filename, postfix):
+    path.mkdir(parents=True, exist_ok=True)
+    prefix = filename.split(".")[0]
+    df.to_csv(f"{path}/{prefix}_{postfix}.csv", index=False)
