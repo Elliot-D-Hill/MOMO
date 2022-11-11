@@ -1,4 +1,4 @@
-from pandas import DataFrame
+from pandas import DataFrame, Series
 from momo.utils import clean_dataframe_header
 
 
@@ -34,6 +34,10 @@ class SkempiParser:
         df["variant_id"] = df.groupby("pdb_code").cumcount().add(1)
         return df
 
+    def split_mutations(self, df: DataFrame) -> Series:
+        df["mutation"] = df["mutation"].str.split(",")
+        return df
+
     # FIXME .dropna() here?
     def organize_dataframe(self, df):
         self.new_names.insert(1, "variant_id")
@@ -46,5 +50,6 @@ class SkempiParser:
             .pipe(self.filter_columns)
             .pipe(self.trim_pdb_code)
             .pipe(self.assign_variant_id)
+            .pipe(self.split_mutations)
             .pipe(self.organize_dataframe)
         )

@@ -8,6 +8,7 @@ from proteintools.fastatools import (
     get_fasta_from_ncbi_query,
     FastaParser,
 )
+from momo.mutate import make_mutation, make_variant, make_wildtype
 
 from momo.sabdab import SabdabParser
 from momo.skempi import SkempiParser
@@ -33,22 +34,41 @@ def main():
     fasta_parser = FastaParser()
     skempi_fasta_parsed = fasta_parser.run_pipeline(skempi_fasta_df)
     print(skempi_fasta_parsed)
-    skempi_mutated = map_mutations(skempi_fasta_parsed)
-    print(skempi_mutated)
+
+    wildtypes = skempi_fasta_parsed.groupby("pdb_code").apply(
+        lambda group: make_wildtype(group.name, group["chain"], group["sequence"])
+    )
+    wildtypes_dict = {wt.pdb_code: wt for wt in wildtypes}
+    # for pdb_code, mutations in zip(
+    #     skempi_parsed["pdb_code"], skempi_parsed["mutation"]
+    # ):
+    #     wildtype =
+    variants = skempi_parsed.apply(
+        lambda x: make_variant(
+            wildtype=wildtypes_dict[x["pdb_code"]],
+            mutations=x["mutation"],
+            id_=x["variant_id"],
+        ),
+        axis=1,
+    )
+    print(variants)
+
+    # skempi_mutated = map_mutations(skempi_fasta_parsed)
+    # print(skempi_mutated)
 
     # SABDAB
-    sabdab_df = read_csv(cfg.filepaths.input.sabdab, sep="\t")
-    print(sabdab_df)
-    sabdab_pdb_codes = sabdab_df["pdb"].unique()
-    sabdab_fasta_text = get_fasta_from_ncbi_query(
-        sabdab_pdb_codes, cfg.secret.email, cfg.secret.ncbi_api_key
-    )
-    sabdab_fasta_df = make_dataframe_from_fasta(sabdab_fasta_text)
-    print(sabdab_fasta_df)
-    sabdab_fasta_parsed = fasta_parser.run_pipeline(sabdab_fasta_df)
-    sabdab_parser = SabdabParser()
-    sabdab_parsed = sabdab_parser.run_pipeline(sabdab_df, sabdab_fasta_parsed)
-    print(sabdab_parsed)
+    # sabdab_df = read_csv(cfg.filepaths.input.sabdab, sep="\t")
+    # print(sabdab_df)
+    # sabdab_pdb_codes = sabdab_df["pdb"].unique()
+    # sabdab_fasta_text = get_fasta_from_ncbi_query(
+    #     sabdab_pdb_codes, cfg.secret.email, cfg.secret.ncbi_api_key
+    # )
+    # sabdab_fasta_df = make_dataframe_from_fasta(sabdab_fasta_text)
+    # print(sabdab_fasta_df)
+    # sabdab_fasta_parsed = fasta_parser.run_pipeline(sabdab_fasta_df)
+    # sabdab_parser = SabdabParser()
+    # sabdab_parsed = sabdab_parser.run_pipeline(sabdab_df, sabdab_fasta_parsed)
+    # print(sabdab_parsed)
 
 
 if __name__ == "__main__":
