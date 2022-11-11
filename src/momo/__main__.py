@@ -1,5 +1,6 @@
+from dataclasses import asdict
 from toml import load
-from pandas import read_csv
+from pandas import DataFrame, read_csv
 
 from proteintools.mutate import map_mutations
 from proteintools.embedding_model import SequenceClassifier
@@ -8,10 +9,9 @@ from proteintools.fastatools import (
     get_fasta_from_ncbi_query,
     FastaParser,
 )
-from momo.mutate import make_mutation, make_variant, make_wildtype
-
+from momo.mutate import variants_to_dataframe
 from momo.sabdab import SabdabParser
-from momo.skempi import SkempiParser
+from momo.skempi import SkempiParser, make_variants, make_wildtypes
 from momo.config import MOMOConfig
 
 
@@ -21,7 +21,7 @@ def main():
 
     # SKEMPI
     skempi_df = read_csv(cfg.filepaths.input.skempi, sep="\t")
-    print(skempi_df)
+    # print(skempi_df)
     skempi_parser = SkempiParser()
     skempi_parsed = skempi_parser.run_pipeline(skempi_df)
     print(skempi_parsed)
@@ -30,45 +30,32 @@ def main():
         skempi_pdb_codes, cfg.secret.email, cfg.secret.ncbi_api_key
     )
     skempi_fasta_df = make_dataframe_from_fasta(skempi_fasta_text)
-    print(skempi_fasta_df)
     fasta_parser = FastaParser()
     skempi_fasta_parsed = fasta_parser.run_pipeline(skempi_fasta_df)
     print(skempi_fasta_parsed)
 
-    wildtypes = skempi_fasta_parsed.groupby("pdb_code").apply(
-        lambda group: make_wildtype(group.name, group["chain"], group["sequence"])
-    )
+    wildtypes = make_wildtypes(skempi_fasta_parsed)
     wildtypes_dict = {wt.pdb_code: wt for wt in wildtypes}
-    # for pdb_code, mutations in zip(
-    #     skempi_parsed["pdb_code"], skempi_parsed["mutation"]
-    # ):
-    #     wildtype =
-    variants = skempi_parsed.apply(
-        lambda x: make_variant(
-            wildtype=wildtypes_dict[x["pdb_code"]],
-            mutations=x["mutation"],
-            id_=x["variant_id"],
-        ),
-        axis=1,
-    )
-    print(variants)
+    variants = make_variants(skempi_parsed, wildtypes_dict)
+    variant_df = variants_to_dataframe(variants)
+    print(variant_df)
 
-    # skempi_mutated = map_mutations(skempi_fasta_parsed)
-    # print(skempi_mutated)
+    skempi = variant_df.merge(skempi_parsed, on=["pdb_code", "variant_id"], how="inner")
+    print(skempi)
 
     # SABDAB
-    # sabdab_df = read_csv(cfg.filepaths.input.sabdab, sep="\t")
-    # print(sabdab_df)
-    # sabdab_pdb_codes = sabdab_df["pdb"].unique()
-    # sabdab_fasta_text = get_fasta_from_ncbi_query(
-    #     sabdab_pdb_codes, cfg.secret.email, cfg.secret.ncbi_api_key
-    # )
-    # sabdab_fasta_df = make_dataframe_from_fasta(sabdab_fasta_text)
-    # print(sabdab_fasta_df)
-    # sabdab_fasta_parsed = fasta_parser.run_pipeline(sabdab_fasta_df)
-    # sabdab_parser = SabdabParser()
-    # sabdab_parsed = sabdab_parser.run_pipeline(sabdab_df, sabdab_fasta_parsed)
-    # print(sabdab_parsed)
+    sabdab_df = read_csv(cfg.filepaths.input.sabdab, sep="\t")
+    print(sabdab_df)
+    sabdab_pdb_codes = sabdab_df["pdb"].unique()
+    sabdab_fasta_text = get_fasta_from_ncbi_query(
+        sabdab_pdb_codes, cfg.secret.email, cfg.secret.ncbi_api_key
+    )
+    sabdab_fasta_df = make_dataframe_from_fasta(sabdab_fasta_text)
+    print(sabdab_fasta_df)
+    sabdab_fasta_parsed = fasta_parser.run_pipeline(sabdab_fasta_df)
+    sabdab_parser = SabdabParser()
+    sabdab_parsed = sabdab_parser.run_pipeline(sabdab_df, sabdab_fasta_parsed)
+    print(sabdab_parsed)
 
 
 if __name__ == "__main__":

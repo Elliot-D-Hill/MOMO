@@ -1,6 +1,7 @@
+from copy import deepcopy
 from dataclasses import dataclass, field
-from pandas import DataFrame, Series
-from typing import Callable
+
+from pandas import DataFrame
 
 
 @dataclass
@@ -22,14 +23,14 @@ class Variant:
     wildtype: Wildtype
     mutations: list[Mutation]
     id_: int
-    chains: dict[str, str] = field(init=False)
+    chains: dict[str:str] = field(init=False)
 
     def __post_init__(self):
         self.chains = apply_mutations(self.wildtype.chains, self.mutations)
 
 
-def apply_mutations(chains: dict, mutations: list[Mutation]) -> dict:
-    mutated_chains = {}
+def apply_mutations(chains: dict[str:str], mutations: list[Mutation]) -> dict:
+    mutated_chains = deepcopy(chains)
     for mutation in mutations:
         chain_key = next(key for key in chains.keys() if mutation.chain in key)
         mutated_chains[chain_key] = apply_substitution(
@@ -40,7 +41,7 @@ def apply_mutations(chains: dict, mutations: list[Mutation]) -> dict:
 
 def apply_substitution(sequence: str, position: int, new_character: str) -> str:
     sequence_list = list(sequence)
-    sequence_list[position] = new_character
+    sequence_list[position - 1] = new_character
     return "".join(sequence_list)
 
 
@@ -53,10 +54,8 @@ def make_mutation(mutation_str: str) -> Mutation:
     )
 
 
-def make_wildtype(
-    pdb_code: str, chain_keys: list[str], sequences: list[str]
-) -> Wildtype:
-    return Wildtype(pdb_code=pdb_code, chains=dict(zip(chain_keys, sequences)))
+def make_wildtype(pdb_code: str, chain_names: list[str], chains: list[str]) -> Wildtype:
+    return Wildtype(pdb_code=pdb_code, chains=dict(zip(chain_names, chains)))
 
 
 def make_variant(wildtype: Wildtype, mutations: list[Mutation], id_: int) -> Variant:
@@ -64,23 +63,17 @@ def make_variant(wildtype: Wildtype, mutations: list[Mutation], id_: int) -> Var
     return Variant(wildtype=wildtype, mutations=mutation_list, id_=id_)
 
 
-# def mutate(sequence: str, positions: list[int], new_characters: list[str], row) -> str:
-#     sequence_list = list(sequence)
-#     for position, new_character in zip(positions, new_characters):
-#         sequence_list[int(position) - 1] = new_character
-#     return "".join(sequence_list)
-
-
-# def apply_mutation(df: DataFrame) -> DataFrame:
-#     return df.assign(
-#         variant=df.apply(
-#             lambda x: mutate(x["sequence"], x["position"], x["new_residue"])
-#             if x["mutation_chain"].isin(x["chain"])
-#             else x["sequence"],
-#             axis=1,
-#         )
-#     )
-
-
-# def map_mutations(df: DataFrame) -> DataFrame:
-#     return df.pipe(split_mutations).pipe(assign_mutations).pipe(apply_mutation)
+def variants_to_dataframe(variants: list[Variant]) -> DataFrame:
+    return DataFrame(
+        [
+            {
+                "pdb_code": variant.wildtype.pdb_code,
+                "variant_id": variant.id_,
+                "chain_name": chain_name,
+                "variant_chain": chain,
+                "wildtype_chain": variant.wildtype.chains[chain_name],
+            }
+            for variant in variants
+            for chain_name, chain in variant.chains.items()
+        ]
+    )

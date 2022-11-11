@@ -1,4 +1,5 @@
 from pandas import DataFrame, Series
+from momo.mutate import make_variant, make_wildtype
 from momo.utils import clean_dataframe_header
 
 
@@ -53,3 +54,20 @@ class SkempiParser:
             .pipe(self.split_mutations)
             .pipe(self.organize_dataframe)
         )
+
+
+def make_wildtypes(df):
+    return df.groupby("pdb_code").apply(
+        lambda group: make_wildtype(group.name, group["chain"], group["sequence"])
+    )
+
+
+def make_variants(df, wildtypes_dict):
+    return df.apply(
+        lambda x: make_variant(
+            wildtype=wildtypes_dict[x["pdb_code"]],
+            mutations=x["mutation"],
+            id_=x["variant_id"],
+        ),
+        axis=1,
+    )
