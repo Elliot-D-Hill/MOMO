@@ -44,7 +44,6 @@ class SkempiParser:
         df["mutation"] = df["mutation"].str.split(",")
         return df
 
-    # FIXME .dropna() here?
     def organize_dataframe(self, df):
         self.new_names.insert(1, "variant_id")
         return df[self.new_names].sort_values(["pdb_code", "variant_id"])

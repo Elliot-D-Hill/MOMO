@@ -1,5 +1,5 @@
 from numpy import select
-from pandas import read_csv
+from pandas import DataFrame, read_csv
 from proteintools.fastatools import (
     make_dataframe_from_fasta,
     get_fasta_from_ncbi_query,
@@ -17,28 +17,6 @@ class SabdabParser:
             "sequence",
         ]
 
-    def format_dataframe(self, df):
-        old_columns = ["pdb", "Hchain", "Lchain", "antigen_chain"]
-        new_columns = ["pdb_code", "heavy_chain", "light_chain", "antigen_chain"]
-        columns = dict(zip(old_columns, new_columns))
-        return (
-            df.filter(items=old_columns)
-            .assign(pdb=df["pdb"].str.upper())
-            .assign(
-                antigen_chain=df["antigen_chain"].str.replace(" | ", "", regex=False)
-            )
-            .rename(columns=columns)
-        )
-
-    def filter_dataframe(self, df):
-        return df[df["heavy_chain"] != df["light_chain"]]
-
-    def group_sums(self, df):
-        return df.groupby("pdb_code").sum()
-
-    def merge_dataframes(self, df, fasta_df):
-        return df.merge(fasta_df, on="pdb_code", how="inner")
-
     def assign_chain_type(self, df):
         choices = ["heavy_chain", "light_chain", "antigen_chain"]
         conditions = [is_chain_subset(df, chain) for chain in choices]
@@ -46,11 +24,22 @@ class SabdabParser:
         return df
 
     def run_pipeline(self, sabdab_df, fasta_df):
+        old_columns = ["pdb", "Hchain", "Lchain", "antigen_chain"]
+        new_columns = ["pdb_code", "heavy_chain", "light_chain", "antigen_chain"]
+        columns = dict(zip(old_columns, new_columns))
         return (
-            sabdab_df.pipe(self.format_dataframe)
-            .pipe(self.filter_dataframe)
-            .pipe(self.group_sums)
-            .pipe(self.merge_dataframes, fasta_df)
+            sabdab_df.filter(items=old_columns)
+            .rename(columns=columns)
+            .assign(
+                pdb_code=lambda df: df["pdb_code"].str.upper(),
+                antigen_chain=lambda df: df["antigen_chain"].str.replace(
+                    " | ", "", regex=False
+                ),
+            )
+            .pipe(lambda df: df[df["heavy_chain"] != df["light_chain"]])
+            .groupby("pdb_code")
+            .sum()
+            .merge(fasta_df, on="pdb_code", how="inner")
             .pipe(self.assign_chain_type)
         )
 
@@ -60,7 +49,7 @@ def is_chain_subset(df, column):
     return [any([i in str(a) for i in str(b)]) for a, b in zip(df[column], df["chain"])]
 
 
-def make_sabdab_dataset(filepath, email, ncbi_api_key):
+def make_sabdab_dataset(filepath: str, email: str, ncbi_api_key: str) -> DataFrame:
     sabdab_df = read_csv(filepath, sep="\t")
     sabdab_pdb_codes = sabdab_df["pdb"].unique()
     sabdab_fasta_text = get_fasta_from_ncbi_query(sabdab_pdb_codes, email, ncbi_api_key)
