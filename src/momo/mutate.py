@@ -1,7 +1,8 @@
 from copy import deepcopy
 from dataclasses import dataclass, field
+from typing import Callable
 
-from pandas import DataFrame
+from pandas import DataFrame, Series
 
 
 @dataclass
@@ -63,6 +64,21 @@ def make_variant(wildtype: Wildtype, mutations: list[Mutation], id_: int) -> Var
     return Variant(wildtype=wildtype, mutations=mutation_list, id_=id_)
 
 
+def parse_mutation(df: DataFrame, parser: Callable) -> Series:
+    return df["mutations"].apply(
+        lambda mutations: [parser(mutation) for mutation in mutations]
+    )
+
+
+def assign_mutations(df: DataFrame) -> DataFrame:
+    return df.assign(
+        old_residue=parse_mutation(df, lambda mutation: mutation.old_residue),
+        chain=parse_mutation(df, lambda mutation: mutation.chain),
+        position=parse_mutation(df, lambda mutation: mutation.position),
+        new_residue=parse_mutation(df, lambda mutation: mutation.new_residue),
+    ).drop("mutations", axis=1)
+
+
 def variants_to_dataframe(variants: list[Variant]) -> DataFrame:
     return DataFrame(
         [
@@ -70,10 +86,18 @@ def variants_to_dataframe(variants: list[Variant]) -> DataFrame:
                 "pdb_code": variant.wildtype.pdb_code,
                 "variant_id": variant.id_,
                 "chain_name": chain_name,
+                "mutated": any(
+                    mutation.chain in chain_name for mutation in variant.mutations
+                ),
+                "mutations": [
+                    mutation
+                    for mutation in variant.mutations
+                    if mutation.chain in chain_name
+                ],
                 "variant_chain": chain,
                 "wildtype_chain": variant.wildtype.chains[chain_name],
             }
             for variant in variants
             for chain_name, chain in variant.chains.items()
         ]
-    )
+    ).pipe(assign_mutations)

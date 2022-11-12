@@ -38,8 +38,6 @@ def main():
     wildtypes_dict = {wt.pdb_code: wt for wt in wildtypes}
     variants = make_variants(skempi_parsed, wildtypes_dict)
     variant_df = variants_to_dataframe(variants)
-    print(variant_df)
-
     skempi = variant_df.merge(skempi_parsed, on=["pdb_code", "variant_id"], how="inner")
     print(skempi)
 
