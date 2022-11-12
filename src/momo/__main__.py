@@ -21,7 +21,6 @@ def main():
 
     # SKEMPI
     skempi_df = read_csv(cfg.filepaths.input.skempi, sep="\t")
-    # print(skempi_df)
     skempi_parser = SkempiParser()
     skempi_parsed = skempi_parser.run_pipeline(skempi_df)
     print(skempi_parsed)
@@ -43,7 +42,6 @@ def main():
 
     # SABDAB
     sabdab_df = read_csv(cfg.filepaths.input.sabdab, sep="\t")
-    print(sabdab_df)
     sabdab_pdb_codes = sabdab_df["pdb"].unique()
     sabdab_fasta_text = get_fasta_from_ncbi_query(
         sabdab_pdb_codes, cfg.secret.email, cfg.secret.ncbi_api_key

@@ -70,34 +70,31 @@ def parse_mutation(df: DataFrame, parser: Callable) -> Series:
     )
 
 
-def assign_mutations(df: DataFrame) -> DataFrame:
-    return df.assign(
-        old_residue=parse_mutation(df, lambda mutation: mutation.old_residue),
-        chain=parse_mutation(df, lambda mutation: mutation.chain),
-        position=parse_mutation(df, lambda mutation: mutation.position),
-        new_residue=parse_mutation(df, lambda mutation: mutation.new_residue),
-    ).drop("mutations", axis=1)
-
-
 def variants_to_dataframe(variants: list[Variant]) -> DataFrame:
-    return DataFrame(
-        [
-            {
+    variant_list = []
+    for variant in variants:
+        for chain_name, chain in variant.chains.items():
+            mutations = {
+                "old_residue": [],
+                "chain": [],
+                "position": [],
+                "new_residue": [],
+            }
+            for mutation in variant.mutations:
+                if mutation.chain in chain_name:
+                    mutations["old_residue"].append(mutation.old_residue)
+                    mutations["chain"].append(mutation.chain)
+                    mutations["position"].append(mutation.position)
+                    mutations["new_residue"].append(mutation.new_residue)
+            variant_dict = {
                 "pdb_code": variant.wildtype.pdb_code,
                 "variant_id": variant.id_,
                 "chain_name": chain_name,
                 "mutated": any(
                     mutation.chain in chain_name for mutation in variant.mutations
                 ),
-                "mutations": [
-                    mutation
-                    for mutation in variant.mutations
-                    if mutation.chain in chain_name
-                ],
                 "variant_chain": chain,
                 "wildtype_chain": variant.wildtype.chains[chain_name],
-            }
-            for variant in variants
-            for chain_name, chain in variant.chains.items()
-        ]
-    ).pipe(assign_mutations)
+            } | mutations
+            variant_list.append(variant_dict)
+    return DataFrame(variant_list)
