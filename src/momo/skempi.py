@@ -1,6 +1,11 @@
-from pandas import DataFrame, Series
-from momo.mutate import make_variant, make_wildtype
+from pandas import DataFrame, Series, read_csv
+from momo.mutate import make_variant, make_wildtype, variants_to_dataframe
 from momo.utils import clean_dataframe_header
+from proteintools.fastatools import (
+    make_dataframe_from_fasta,
+    get_fasta_from_ncbi_query,
+    FastaParser,
+)
 
 
 class SkempiParser:
@@ -71,3 +76,20 @@ def make_variants(df, wildtypes_dict):
         ),
         axis=1,
     )
+
+
+def make_skempi_dataset(filepath, email, ncbi_api_key):
+    skempi_df = read_csv(filepath, sep="\t")
+    skempi_parser = SkempiParser()
+    skempi_parsed = skempi_parser.run_pipeline(skempi_df)
+    skempi_pdb_codes = skempi_parsed["pdb_code"].unique()
+    skempi_fasta_text = get_fasta_from_ncbi_query(skempi_pdb_codes, email, ncbi_api_key)
+    skempi_fasta_df = make_dataframe_from_fasta(skempi_fasta_text)
+    fasta_parser = FastaParser()
+    skempi_fasta_parsed = fasta_parser.run_pipeline(skempi_fasta_df)
+    wildtypes = make_wildtypes(skempi_fasta_parsed)
+    wildtypes_dict = {wt.pdb_code: wt for wt in wildtypes}
+    variants = make_variants(skempi_parsed, wildtypes_dict)
+    variant_df = variants_to_dataframe(variants)
+    skempi = variant_df.merge(skempi_parsed, on=["pdb_code", "variant_id"], how="inner")
+    return skempi
